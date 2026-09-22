@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>West Essex WHS Handicap Calculation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --fairway-dark: #142E22;
+    --fairway: #1F4A38;
+    --fairway-mid: #2C6349;
+    --fairway-light: #6FA97F;
+    --cream: #F4EFDE;
+    --card: #FBF8EE;
+    --ink: #142018;
+    --ink-soft: #3E4C43;
+    --flag: #A6402E;
+    --flag-dark: #833024;
+    --gold: #C79A3C;
+    --line: #D8D0B4;
+    --radius: 14px;
+    --shadow: 0 6px 20px rgba(10, 26, 18, 0.18);
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  *, *::before, *::after { box-sizing: inherit; }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --card: #1B3328;
+      --cream: #16281F;
+      --ink: #EFE9D6;
+      --ink-soft: #C7D3C8;
+      --line: #33513F;
+    }
+  }
+  :root[data-theme="dark"] {
+    --card: #1B3328;
+    --cream: #16281F;
+    --ink: #EFE9D6;
+    --ink-soft: #C7D3C8;
+    --line: #33513F;
+  }
+
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+
+  body {
+    margin: 0;
+    min-height: 100%;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--ink);
+    background-color: var(--fairway-dark);
+    background-image:
+      repeating-linear-gradient(
+        100deg,
+        rgba(255,255,255,0.035) 0px,
+        rgba(255,255,255,0.035) 46px,
+        rgba(0,0,0,0.05) 46px,
+        rgba(0,0,0,0.05) 92px
+      ),
+      radial-gradient(circle at 15% 8%, rgba(111,169,127,0.25), transparent 42%),
+      radial-gradient(circle at 85% 90%, rgba(199,154,60,0.12), transparent 45%),
+      linear-gradient(160deg, var(--fairway-dark) 0%, var(--fairway) 55%, var(--fairway-mid) 100%);
+    background-attachment: fixed;
+    line-height: 1.5;
+  }
+
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 28px 18px 64px;
+  }
+
+  header.masthead {
+    text-align: center;
+    padding: 30px 18px 26px;
+    margin-bottom: 26px;
+    border-radius: var(--radius);
+    background: linear-gradient(180deg, rgba(20,46,34,0.55), rgba(20,46,34,0.28));
+    border: 1px solid rgba(199,154,60,0.35);
+    position: relative;
+  }
+  header.masthead::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border: 1px solid rgba(244,239,222,0.18);
+    border-radius: calc(var(--radius) - 4px);
+    pointer-events: none;
+  }
+  .flag-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(1.5rem, 4.6vw, 2.35rem);
+    color: var(--cream);
+    margin: 0 0 6px;
+    letter-spacing: 0.2px;
+  }
+  .masthead p {
+    margin: 0;
+    color: var(--fairway-light);
+    font-size: 0.95rem;
+  }
+
+  section.card {
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 22px 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--line);
+  }
+  section.card > h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 4px;
+    color: var(--ink);
+  }
+  .section-sub {
+    margin: 0 0 18px;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+  }
+
+  /* Tee setup */
+  .tee-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 640px) {
+    .tee-grid { grid-template-columns: 1fr; }
+  }
+  .tee-box {
+    border-radius: 10px;
+    padding: 14px 14px 16px;
+    background: rgba(0,0,0,0.03);
+    border: 1px solid var(--line);
+    border-top: 5px solid var(--tee-color, var(--gold));
+  }
+  .tee-box[data-tee="Black"] { --tee-color: #2A2A2A; }
+  .tee-box[data-tee="White"] { --tee-color: #B7B29C; }
+  .tee-box[data-tee="Blue"]  { --tee-color: #2E5FA3; }
+  .tee-box h3 {
+    margin: 2px 0 12px;
+    font-size: 1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .tee-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--tee-color, var(--gold));
+    border: 1px solid rgba(0,0,0,0.25);
+    display: inline-block;
+  }
+  label.field-label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+    margin: 10px 0 4px;
+  }
+  input[type="number"], select {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    font-size: 0.95rem;
+    font-family: inherit;
+  }
+  input[type="number"]:focus, select:focus, button:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 1px;
+  }
+
+  .btn-row { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button {
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.92rem;
+    border-radius: 999px;
+    border: none;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  button:active { transform: translateY(1px); }
+  .btn-primary { background: var(--flag); color: #FBF8EE; box-shadow: 0 3px 10px rgba(166,64,46,0.35); }
+  .btn-primary:hover { background: var(--flag-dark); }
+  .btn-secondary { background: var(--fairway-mid); color: #FBF8EE; }
+  .btn-secondary:hover { background: var(--fairway); }
+  .btn-ghost { background: transparent; color: var(--ink-soft); border: 1px solid var(--line); }
+  .btn-ghost:hover { background: rgba(0,0,0,0.04); }
+  button:disabled {
+    opacity: 0.45; cursor: not-allowed; box-shadow: none; transform: none;
+  }
+  .status-msg {
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin-top: 8px;
+    min-height: 1.1em;
+  }
+  .status-msg.ok { color: #2C6349; font-weight: 600; }
+  .status-msg.warn { color: var(--flag-dark); font-weight: 600; }
+
+  /* Scorecard table */
+  .table-scroll { overflow-x: auto; border-radius: 10px; border: 1px solid var(--line); }
+  table.scorecard { width: 100%; border-collapse: collapse; min-width: 560px; }
+  table.scorecard thead th {
+    background: var(--fairway);
+    color: var(--cream);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    padding: 10px 8px;
+    text-align: left;
+    position: sticky;
+    top: 0;
+  }
+  table.scorecard tbody td {
+    padding: 7px 8px;
+    border-top: 1px solid var(--line);
+    font-size: 0.92rem;
+  }
+  table.scorecard tbody tr:nth-child(even) { background: rgba(0,0,0,0.025); }
+  table.scorecard tbody tr.used-row { background: rgba(199,154,60,0.16); }
+  table.scorecard tbody tr.dropped-row td:not(:first-child) { color: var(--ink-soft); }
+  .round-num { font-weight: 700; width: 44px; }
+  .diff-col { font-weight: 700; text-align: right; padding-right: 14px !important; }
+  .used-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    background: var(--gold);
+    color: #33260A;
+    border-radius: 5px;
+    padding: 1px 6px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  table.scorecard input[type="number"], table.scorecard select {
+    padding: 6px 7px;
+    font-size: 0.88rem;
+    min-width: 68px;
+  }
+
+  /* Results */
+  .result-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    background: linear-gradient(135deg, var(--fairway) 0%, var(--fairway-mid) 100%);
+    border-radius: 12px;
+    padding: 20px 22px;
+    color: var(--cream);
+    margin-top: 16px;
+  }
+  .result-banner .hi-label { font-size: 0.85rem; opacity: 0.85; margin-bottom: 2px; }
+  .result-banner .hi-value {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2.4rem, 8vw, 3.4rem);
+    font-weight: 700;
+    line-height: 1;
+  }
+  .result-detail { font-size: 0.85rem; opacity: 0.9; max-width: 340px; }
+
+  footer.note {
+    text-align: center;
+    color: var(--fairway-light);
+    font-size: 0.78rem;
+    margin-top: 26px;
+    line-height: 1.6;
+    padding: 0 12px;
+  }
+
+  /* Mobile: card-style rows for the scorecard */
+  @media (max-width: 640px) {
+    table.scorecard, table.scorecard thead, table.scorecard tbody, table.scorecard th, table.scorecard td, table.scorecard tr {
+      display: block;
+    }
+    table.scorecard { min-width: 0; }
+    table.scorecard thead { display: none; }
+    table.scorecard tbody tr {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin: 10px 0;
+      background: var(--card);
+    }
+    table.scorecard tbody tr.used-row { background: rgba(199,154,60,0.16); }
+    table.scorecard tbody td {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: none;
+      padding: 6px 0;
+      gap: 10px;
+    }
+    table.scorecard tbody td::before {
+      content: attr(data-label);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--ink-soft);
+      flex: 0 0 auto;
+    }
+    table.scorecard tbody td.round-num { font-size: 1rem; }
+    .diff-col { text-align: right; padding-right: 0 !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <span class="flag-mark" aria-hidden="true">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+        <line x1="5" y1="2" x2="5" y2="22" stroke="#C79A3C" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M5 3 L18 6.5 L5 10 Z" fill="#A6402E"/>
+        <ellipse cx="5" cy="22.3" rx="4.2" ry="1.1" fill="rgba(0,0,0,0.25)"/>
+      </svg>
+    </span>
+    <h1>West Essex WHS Handicap Calculation</h1>
+    <p>21-round rolling scoring record &middot; World Handicap System</p>
+  </header>
+
+  <section class="card" id="setupCard">
+    <h2>Tee Box Setup</h2>
+    <p class="section-sub">Enter the Constant, Slope Rating and Course Rating for each tee. Save once — you can update these later if ratings change.</p>
+    <div class="tee-grid">
+      <div class="tee-box" data-tee="Black">
+        <h3><span class="tee-dot"></span>Black Tee</h3>
+        <label class="field-label" for="black-const">Constant <span title="Standard WHS constant is 113">(std. 113)</span></label>
+        <input type="number" id="black-const" step="0.1" min="1" inputmode="decimal">
+        <label class="field-label" for="black-slope">Slope Rating</label>
+        <input type="number" id="black-slope" step="1" min="55" max="155" inputmode="numeric">
+        <label class="field-label" for="black-cr">Course Rating</label>
+        <input type="number" id="black-cr" step="0.1" min="50" inputmode="decimal">
+      </div>
+      <div class="tee-box" data-tee="White">
+        <h3><span class="tee-dot"></span>White Tee</h3>
+        <label class="field-label" for="white-const">Constant <span title="Standard WHS constant is 113">(std. 113)</span></label>
+        <input type="number" id="white-const" step="0.1" min="1" inputmode="decimal">
+        <label class="field-label" for="white-slope">Slope Rating</label>
+        <input type="number" id="white-slope" step="1" min="55" max="155" inputmode="numeric">
+        <label class="field-label" for="white-cr">Course Rating</label>
+        <input type="number" id="white-cr" step="0.1" min="50" inputmode="decimal">
+      </div>
+      <div class="tee-box" data-tee="Blue">
+        <h3><span class="tee-dot"></span>Blue Tee</h3>
+        <label class="field-label" for="blue-const">Constant <span title="Standard WHS constant is 113">(std. 113)</span></label>
+        <input type="number" id="blue-const" step="0.1" min="1" inputmode="decimal">
+        <label class="field-label" for="blue-slope">Slope Rating</label>
+        <input type="number" id="blue-slope" step="1" min="55" max="155" inputmode="numeric">
+        <label class="field-label" for="blue-cr">Course Rating</label>
+        <input type="number" id="blue-cr" step="0.1" min="50" inputmode="decimal">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" id="saveSetupBtn">Save Tee Setup</button>
+      <span class="status-msg" id="setupStatus"></span>
+    </div>
+  </section>
+
+  <section class="card" id="roundsCard">
+    <h2>Scoring Record</h2>
+    <p class="section-sub">Enter the tee played, Gross Score and any PCC adjustment for each round. Leave PCC blank for 0.</p>
+    <div class="table-scroll">
+      <table class="scorecard" id="roundsTable">
+        <thead>
+          <tr>
+            <th>Round</th>
+            <th>Tee</th>
+            <th>Gross Score</th>
+            <th>PCC</th>
+            <th>Score Differential</th>
+          </tr>
+        </thead>
+        <tbody id="roundsBody"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" id="calcBtn">Calculate WHS Handicap</button>
+      <button class="btn-secondary" id="updateBtn">Update Rounds</button>
+      <button class="btn-ghost" id="revertBtn">Revert to Previous Calculations</button>
+    </div>
+    <div class="status-msg" id="roundsStatus"></div>
+
+    <div class="result-banner" id="resultBanner" hidden>
+      <div>
+        <div class="hi-label">WHS Handicap Index</div>
+        <div class="hi-value" id="hiValue">–</div>
+      </div>
+      <div class="result-detail" id="hiDetail"></div>
+    </div>
+  </section>
+
+  <footer class="note">
+    All figures use the published WHS formula: Score Differential = (Constant &divide; Slope Rating) &times; (Gross Score &minus; Course Rating &minus; PCC).
+    The Handicap Index averages the lowest scoring differentials from the most recent 20 rounds per the official WHS table, rounded to the nearest tenth.
+    Setup data and round history are saved automatically in this browser.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const STORAGE_KEY = "westEssexWHS_v1";
+  const TEES = ["Black", "White", "Blue"];
+  const ROUND_COUNT = 21;
+
+  // Official WHS table: count of differentials -> {n: number to average, adj: adjustment}
+  const WHS_TABLE = {
+    1: {n:1, adj:-2.0}, 2: {n:1, adj:-2.0}, 3: {n:1, adj:-2.0},
+    4: {n:1, adj:-1.0}, 5: {n:1, adj:0},
+    6: {n:2, adj:-1.0}, 7: {n:2, adj:0}, 8: {n:2, adj:0},
+    9: {n:3, adj:0}, 10: {n:3, adj:0}, 11: {n:3, adj:0},
+    12: {n:4, adj:0}, 13: {n:4, adj:0}, 14: {n:4, adj:0},
+    15: {n:5, adj:0}, 16: {n:5, adj:0},
+    17: {n:6, adj:0}, 18: {n:6, adj:0},
+    19: {n:7, adj:0}, 20: {n:8, adj:0}
+  };
+
+  function blankSetup() {
+    const s = {};
+    TEES.forEach(t => s[t] = { constant: null, slope: null, cr: null });
+    return s;
+  }
+  function blankRound() { return { tee: "", gross: null, pcc: null }; }
+  function blankRounds() {
+    const arr = [];
+    for (let i = 0; i < ROUND_COUNT; i++) arr.push(blankRound());
+    return arr;
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) throw new Error("none");
+      const parsed = JSON.parse(raw);
+      if (!parsed.setup) parsed.setup = blankSetup();
+      if (!parsed.rounds || parsed.rounds.length !== ROUND_COUNT) parsed.rounds = blankRounds();
+      if (parsed.results === undefined) parsed.results = null;
+      if (parsed.previous === undefined) parsed.previous = null;
+      return parsed;
+    } catch (e) {
+      return { setup: blankSetup(), rounds: blankRounds(), results: null, previous: null };
+    }
+  }
+
+  let state = loadState();
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      setRoundsStatus("Could not save data in this browser (storage may be full or disabled).", "warn");
+    }
+  }
+
+  // ---------- Setup ----------
+  function fillSetupInputs() {
+    TEES.forEach(tee => {
+      const key = tee.toLowerCase();
+      const data = state.setup[tee];
+      const constEl = document.getElementById(key + "-const");
+      const slopeEl = document.getElementById(key + "-slope");
+      const crEl = document.getElementById(key + "-cr");
+      constEl.value = data.constant !== null && data.constant !== undefined ? data.constant : "";
+      slopeEl.value = data.slope !== null && data.slope !== undefined ? data.slope : "";
+      crEl.value = data.cr !== null && data.cr !== undefined ? data.cr : "";
+    });
+  }
+
+  function setSetupStatus(msg, cls) {
+    const el = document.getElementById("setupStatus");
+    el.textContent = msg;
+    el.className = "status-msg" + (cls ? " " + cls : "");
+  }
+
+  function saveSetup() {
+    const newSetup = {};
+    let ok = true;
+    let firstError = "";
+    TEES.forEach(tee => {
+      const key = tee.toLowerCase();
+      const constVal = parseFloat(document.getElementById(key + "-const").value);
+      const slopeVal = parseFloat(document.getElementById(key + "-slope").value);
+      const crVal = parseFloat(document.getElementById(key + "-cr").value);
+      const anyEntered = document.getElementById(key + "-const").value !== "" ||
+                          document.getElementById(key + "-slope").value !== "" ||
+                          document.getElementById(key + "-cr").value !== "";
+      if (anyEntered) {
+        if (isNaN(constVal) || isNaN(slopeVal) || isNaN(crVal)) {
+          ok = false;
+          if (!firstError) firstError = tee + " tee: all three fields must be entered as numbers.";
+        } else if (slopeVal < 55 || slopeVal > 155) {
+          ok = false;
+          if (!firstError) firstError = tee + " tee: Slope Rating should be between 55 and 155.";
+        }
+      }
+      newSetup[tee] = {
+        constant: anyEntered && !isNaN(constVal) ? constVal : null,
+        slope: anyEntered && !isNaN(slopeVal) ? slopeVal : null,
+        cr: anyEntered && !isNaN(crVal) ? crVal : null
+      };
+    });
+    if (!ok) {
+      setSetupStatus(firstError, "warn");
+      return;
+    }
+    state.setup = newSetup;
+    saveState();
+    setSetupStatus("Tee setup saved.", "ok");
+    renderRounds(); // tee dropdowns may need refresh (labels unaffected, but re-validate)
+  }
+
+  // ---------- Rounds ----------
+  function teeIsConfigured(tee) {
+    if (!tee) return false;
+    const d = state.setup[tee];
+    return d && d.constant !== null && d.slope !== null && d.cr !== null;
+  }
+
+  function renderRounds() {
+    const body = document.getElementById("roundsBody");
+    body.innerHTML = "";
+    const usedSet = new Set(state.results ? state.results.usedIndices : []);
+    const droppedIndex = state.results ? 0 : -1; // round 1 (index 0) is always dropped once calculated
+
+    state.rounds.forEach((round, idx) => {
+      const tr = document.createElement("tr");
+      if (usedSet.has(idx)) tr.classList.add("used-row");
+      if (idx === droppedIndex) tr.classList.add("dropped-row");
+
+      const tdNum = document.createElement("td");
+      tdNum.className = "round-num";
+      tdNum.setAttribute("data-label", "Round");
+      tdNum.textContent = (idx + 1) + (idx === droppedIndex ? " (oldest)" : "");
+      tr.appendChild(tdNum);
+
+      const tdTee = document.createElement("td");
+      tdTee.setAttribute("data-label", "Tee");
+      const teeSelect = document.createElement("select");
+      teeSelect.setAttribute("aria-label", "Tee played, round " + (idx + 1));
+      const optBlank = document.createElement("option");
+      optBlank.value = "";
+      optBlank.textContent = "Select";
+      teeSelect.appendChild(optBlank);
+      TEES.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t;
+        opt.textContent = t;
+        if (round.tee === t) opt.selected = true;
+        teeSelect.appendChild(opt);
+      });
+      teeSelect.addEventListener("change", () => {
+        state.rounds[idx].tee = teeSelect.value;
+        saveState();
+      });
+      tdTee.appendChild(teeSelect);
+      tr.appendChild(tdTee);
+
+      const tdGross = document.createElement("td");
+      tdGross.setAttribute("data-label", "Gross Score");
+      const grossInput = document.createElement("input");
+      grossInput.type = "number";
+      grossInput.min = "18";
+      grossInput.max = "200";
+      grossInput.step = "1";
+      grossInput.inputMode = "numeric";
+      grossInput.setAttribute("aria-label", "Gross score, round " + (idx + 1));
+      grossInput.value = round.gross !== null && round.gross !== undefined ? round.gross : "";
+      grossInput.addEventListener("input", () => {
+        const v = grossInput.value;
+        state.rounds[idx].gross = v === "" ? null : parseFloat(v);
+        saveState();
+      });
+      tdGross.appendChild(grossInput);
+      tr.appendChild(tdGross);
+
+      const tdPcc = document.createElement("td");
+      tdPcc.setAttribute("data-label", "PCC");
+      const pccInput = document.createElement("input");
+      pccInput.type = "number";
+      pccInput.step = "0.1";
+      pccInput.min = "-3";
+      pccInput.max = "3";
+      pccInput.inputMode = "decimal";
+      pccInput.placeholder = "0";
+      pccInput.setAttribute("aria-label", "PCC adjustment, round " + (idx + 1));
+      pccInput.value = round.pcc !== null && round.pcc !== undefined ? round.pcc : "";
+      pccInput.addEventListener("input", () => {
+        const v = pccInput.value;
+        state.rounds[idx].pcc = v === "" ? null : parseFloat(v);
+        saveState();
+      });
+      tdPcc.appendChild(pccInput);
+      tr.appendChild(tdPcc);
+
+      const tdDiff = document.createElement("td");
+      tdDiff.className = "diff-col";
+      tdDiff.setAttribute("data-label", "Score Differential");
+      if (state.results && state.results.differentials[idx] !== null && state.results.differentials[idx] !== undefined) {
+        tdDiff.textContent = state.results.differentials[idx].toFixed(1);
+        if (usedSet.has(idx)) {
+          const badge = document.createElement("span");
+          badge.className = "used-badge";
+          badge.textContent = "USED";
+          tdDiff.appendChild(badge);
+        }
+      } else {
+        tdDiff.textContent = "–";
+      }
+      tr.appendChild(tdDiff);
+
+      body.appendChild(tr);
+    });
+
+    document.getElementById("revertBtn").disabled = !state.previous;
+    renderResultBanner();
+  }
+
+  function setRoundsStatus(msg, cls) {
+    const el = document.getElementById("roundsStatus");
+    el.textContent = msg;
+    el.className = "status-msg" + (cls ? " " + cls : "");
+  }
+
+  function renderResultBanner() {
+    const banner = document.getElementById("resultBanner");
+    if (state.results) {
+      banner.hidden = false;
+      document.getElementById("hiValue").textContent =
+        (state.results.handicapIndex > 0 ? "" : "") + state.results.handicapIndex.toFixed(1);
+      document.getElementById("hiDetail").textContent =
+        "Based on the lowest " + state.results.numUsed + " of the most recent 20 Score Differentials" +
+        (state.results.adjustment !== 0 ? " (adjustment " + (state.results.adjustment > 0 ? "+" : "") + state.results.adjustment.toFixed(1) + ")" : "") +
+        ". Average of used differentials: " + state.results.avgUsed.toFixed(2) + ".";
+    } else {
+      banner.hidden = true;
+    }
+  }
+
+  // ---------- Calculation ----------
+  function calculate() {
+    // Validate all 21 rounds have tee + gross score
+    for (let i = 0; i < ROUND_COUNT; i++) {
+      const r = state.rounds[i];
+      if (!r.tee) {
+        setRoundsStatus("Round " + (i + 1) + " needs a tee selected before calculating.", "warn");
+        return;
+      }
+      if (r.gross === null || r.gross === undefined || isNaN(r.gross)) {
+        setRoundsStatus("Round " + (i + 1) + " needs a Gross Score before calculating.", "warn");
+        return;
+      }
+      if (!teeIsConfigured(r.tee)) {
+        setRoundsStatus("The " + r.tee + " tee setup is incomplete. Save its Constant, Slope Rating and Course Rating first.", "warn");
+        return;
+      }
+    }
+
+    // Compute a differential for every round (so the full scorecard displays one),
+    // but only rounds 2-21 (indices 1..20, the most recent 20) count toward the handicap.
+    const differentials = state.rounds.map(r => {
+      const tee = state.setup[r.tee];
+      const pcc = (r.pcc === null || r.pcc === undefined || isNaN(r.pcc)) ? 0 : r.pcc;
+      const diff = (tee.constant / tee.slope) * (r.gross - tee.cr - pcc);
+      return Math.round(diff * 10) / 10;
+    });
+
+    const consideredIndices = [];
+    for (let i = 1; i < ROUND_COUNT; i++) consideredIndices.push(i); // last 20 rounds, drop index 0
+    const consideredCount = consideredIndices.length; // 20
+
+    const table = WHS_TABLE[consideredCount];
+    const sortedByValue = consideredIndices
+      .map(i => ({ idx: i, val: differentials[i] }))
+      .sort((a, b) => a.val - b.val);
+
+    const chosen = sortedByValue.slice(0, table.n);
+    const avgUsed = chosen.reduce((sum, c) => sum + c.val, 0) / chosen.length;
+    let handicapIndex = avgUsed + table.adj;
+    handicapIndex = Math.trunc(handicapIndex * 10) / 10; // truncate, not round, to 1 decimal
+
+    state.results = {
+      differentials: differentials,
+      usedIndices: chosen.map(c => c.idx),
+      numUsed: table.n,
+      adjustment: table.adj,
+      avgUsed: avgUsed,
+      handicapIndex: handicapIndex,
+      calculatedAt: new Date().toISOString()
+    };
+
+    saveState();
+    setRoundsStatus("Handicap calculated from the most recent 20 rounds.", "ok");
+    renderRounds();
+  }
+
+  // ---------- Update Rounds ----------
+  function updateRounds() {
+    // Save a full snapshot for revert
+    state.previous = {
+      rounds: JSON.parse(JSON.stringify(state.rounds)),
+      results: state.results ? JSON.parse(JSON.stringify(state.results)) : null
+    };
+
+    const newRounds = state.rounds.slice(1); // drop round 1
+    newRounds.push(blankRound());            // round 21 blank
+    state.rounds = newRounds;
+    state.results = null; // stale until recalculated
+
+    saveState();
+    setRoundsStatus("Round 1 removed. Rounds shifted up — round 21 is ready for new data.", "ok");
+    renderRounds();
+  }
+
+  // ---------- Revert ----------
+  function revert() {
+    if (!state.previous) return;
+    state.rounds = state.previous.rounds;
+    state.results = state.previous.results;
+    state.previous = null;
+    saveState();
+    setRoundsStatus("Reverted to the scoring record and calculation before the last Update Rounds.", "ok");
+    renderRounds();
+  }
+
+  // ---------- Wire up ----------
+  document.getElementById("saveSetupBtn").addEventListener("click", saveSetup);
+  document.getElementById("calcBtn").addEventListener("click", calculate);
+  document.getElementById("updateBtn").addEventListener("click", updateRounds);
+  document.getElementById("revertBtn").addEventListener("click", revert);
+
+  fillSetupInputs();
+  renderRounds();
+})();
+</script>
+</body>
+</html>
