@@ -702,7 +702,7 @@
     const chosen = sortedByValue.slice(0, table.n);
     const avgUsed = chosen.reduce((sum, c) => sum + c.val, 0) / chosen.length;
     let handicapIndex = avgUsed + table.adj;
-    handicapIndex = Math.trunc(handicapIndex * 10) / 10; // truncate, not round, to 1 decimal
+    handicapIndex = Math.round(handicapIndex * 10) / 10; // round to nearest tenth
 
     state.results = {
       differentials: differentials,
