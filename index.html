@@ -220,7 +220,7 @@
 
   /* Scorecard table */
   .table-scroll { overflow-x: auto; border-radius: 10px; border: 1px solid var(--line); }
-  table.scorecard { width: 100%; border-collapse: collapse; min-width: 560px; }
+  table.scorecard { width: 100%; border-collapse: collapse; min-width: 640px; }
   table.scorecard thead th {
     background: var(--fairway);
     color: var(--cream);
@@ -259,6 +259,17 @@
     font-size: 0.88rem;
     min-width: 68px;
   }
+
+  /* Custom course rows */
+  input.custom-chk { width: 20px; height: 20px; min-width: 0 !important; accent-color: var(--flag); cursor: pointer; }
+  tr.custom-row td { padding: 10px 12px 12px; background: rgba(199,154,60,0.10); }
+  .custom-fields { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .custom-fields .cf { flex: 1 1 140px; }
+  .custom-fields .cf.desc { flex: 2 1 240px; }
+  .custom-fields label { display: block; font-size: 0.72rem; font-weight: 700; color: var(--ink-soft); margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .custom-fields input[type="text"] { width: 100%; padding: 6px 7px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font-size: 0.88rem; font-family: inherit; }
+  .custom-fields input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .custom-badge { display: inline-block; font-size: 0.68rem; font-weight: 700; background: var(--fairway-mid); color: #FBF8EE; border-radius: 5px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
 
   /* Results */
   .result-banner {
@@ -325,6 +336,10 @@
     }
     table.scorecard tbody td.round-num { font-size: 1rem; }
     .diff-col { text-align: right; padding-right: 0 !important; }
+    table.scorecard tbody tr.has-custom { margin-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: 1px dashed var(--line); }
+    table.scorecard tbody tr.custom-row { margin-top: 0; padding: 0; border-top: none; border-radius: 0 0 10px 10px; background: rgba(199,154,60,0.10); }
+    table.scorecard tbody tr.custom-row td { display: block; background: none; padding: 10px 12px 12px; }
+    table.scorecard tbody tr.custom-row td::before { content: none; }
   }
 </style>
 </head>
@@ -383,7 +398,7 @@
 
   <section class="card" id="roundsCard">
     <h2>Scoring Record</h2>
-    <p class="section-sub">Enter the tee played, Gross Score and any PCC adjustment for each round. Leave PCC blank for 0.</p>
+    <p class="section-sub">Enter the tee played, Gross Score and any PCC adjustment for each round. Leave PCC blank for 0. Tick Custom Course on a round to give it its own course description, Course Rating and Slope Rating instead of the tee setup values.</p>
     <div class="table-scroll">
       <table class="scorecard" id="roundsTable">
         <thead>
@@ -392,6 +407,7 @@
             <th>Tee</th>
             <th>Gross Score</th>
             <th>PCC</th>
+            <th>Custom Course</th>
             <th>Score Differential</th>
           </tr>
         </thead>
@@ -417,7 +433,7 @@
   <footer class="note">
     All figures use the published WHS formula: Score Differential = (Constant &divide; Slope Rating) &times; (Gross Score &minus; Course Rating &minus; PCC).
     The Handicap Index averages the lowest scoring differentials from the most recent 20 rounds per the official WHS table, rounded to the nearest tenth.
-    Setup data and round history are saved automatically in this browser.
+    Rounds marked Custom Course use their own Course Rating and Slope Rating (with the selected tee's Constant, or 113 if no tee is chosen). Setup data and round history are saved automatically in this browser.
   </footer>
 
 </div>
@@ -446,7 +462,7 @@
     TEES.forEach(t => s[t] = { constant: null, slope: null, cr: null });
     return s;
   }
-  function blankRound() { return { tee: "", gross: null, pcc: null }; }
+  function blankRound() { return { tee: "", gross: null, pcc: null, custom: false, courseDesc: "", cr: null, slope: null }; }
   function blankRounds() {
     const arr = [];
     for (let i = 0; i < ROUND_COUNT; i++) arr.push(blankRound());
@@ -542,6 +558,22 @@
     return d && d.constant !== null && d.slope !== null && d.cr !== null;
   }
 
+  function makeCustomField(labelText, type, value, extraClass, ariaLabel, attrs, onInput) {
+    const box = document.createElement("div");
+    box.className = "cf" + (extraClass ? " " + extraClass : "");
+    const lab = document.createElement("label");
+    lab.textContent = labelText;
+    const inp = document.createElement("input");
+    inp.type = type;
+    Object.keys(attrs || {}).forEach(k => inp.setAttribute(k, attrs[k]));
+    inp.setAttribute("aria-label", ariaLabel);
+    inp.value = value;
+    inp.addEventListener("input", () => onInput(inp.value));
+    box.appendChild(lab);
+    box.appendChild(inp);
+    return box;
+  }
+
   function renderRounds() {
     const body = document.getElementById("roundsBody");
     body.innerHTML = "";
@@ -618,11 +650,32 @@
       tdPcc.appendChild(pccInput);
       tr.appendChild(tdPcc);
 
+      const tdCustom = document.createElement("td");
+      tdCustom.setAttribute("data-label", "Custom Course");
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.className = "custom-chk";
+      chk.checked = !!round.custom;
+      chk.setAttribute("aria-label", "Use custom course ratings, round " + (idx + 1));
+      chk.addEventListener("change", () => {
+        state.rounds[idx].custom = chk.checked;
+        saveState();
+        renderRounds();
+      });
+      tdCustom.appendChild(chk);
+      tr.appendChild(tdCustom);
+
       const tdDiff = document.createElement("td");
       tdDiff.className = "diff-col";
       tdDiff.setAttribute("data-label", "Score Differential");
       if (state.results && state.results.differentials[idx] !== null && state.results.differentials[idx] !== undefined) {
         tdDiff.textContent = state.results.differentials[idx].toFixed(1);
+        if (round.custom) {
+          const cb = document.createElement("span");
+          cb.className = "custom-badge";
+          cb.textContent = "CUSTOM";
+          tdDiff.appendChild(cb);
+        }
         if (usedSet.has(idx)) {
           const badge = document.createElement("span");
           badge.className = "used-badge";
@@ -634,7 +687,30 @@
       }
       tr.appendChild(tdDiff);
 
+      if (round.custom) tr.classList.add("has-custom");
       body.appendChild(tr);
+
+      if (round.custom) {
+        const crow = document.createElement("tr");
+        crow.className = "custom-row";
+        const ctd = document.createElement("td");
+        ctd.colSpan = 6;
+        const fields = document.createElement("div");
+        fields.className = "custom-fields";
+        const n = idx + 1;
+        fields.appendChild(makeCustomField("Course description (memo)", "text", round.courseDesc || "", "desc", "Course description, round " + n,
+          { maxlength: "80", placeholder: "e.g. Course name" },
+          v => { state.rounds[idx].courseDesc = v; saveState(); }));
+        fields.appendChild(makeCustomField("Course Rating", "number", (round.cr !== null && round.cr !== undefined) ? round.cr : "", "", "Course rating, round " + n,
+          { step: "0.1", min: "50", inputmode: "decimal" },
+          v => { state.rounds[idx].cr = v === "" ? null : parseFloat(v); saveState(); }));
+        fields.appendChild(makeCustomField("Slope Rating", "number", (round.slope !== null && round.slope !== undefined) ? round.slope : "", "", "Slope rating, round " + n,
+          { step: "1", min: "55", max: "155", inputmode: "numeric" },
+          v => { state.rounds[idx].slope = v === "" ? null : parseFloat(v); saveState(); }));
+        ctd.appendChild(fields);
+        crow.appendChild(ctd);
+        body.appendChild(crow);
+      }
     });
 
     document.getElementById("revertBtn").disabled = !state.previous;
@@ -667,26 +743,46 @@
     // Validate all 21 rounds have tee + gross score
     for (let i = 0; i < ROUND_COUNT; i++) {
       const r = state.rounds[i];
-      if (!r.tee) {
-        setRoundsStatus("Round " + (i + 1) + " needs a tee selected before calculating.", "warn");
-        return;
-      }
       if (r.gross === null || r.gross === undefined || isNaN(r.gross)) {
         setRoundsStatus("Round " + (i + 1) + " needs a Gross Score before calculating.", "warn");
         return;
       }
-      if (!teeIsConfigured(r.tee)) {
-        setRoundsStatus("The " + r.tee + " tee setup is incomplete. Save its Constant, Slope Rating and Course Rating first.", "warn");
-        return;
+      if (r.custom) {
+        const crOk = r.cr !== null && r.cr !== undefined && !isNaN(r.cr);
+        const slOk = r.slope !== null && r.slope !== undefined && !isNaN(r.slope) && r.slope >= 55 && r.slope <= 155;
+        if (!crOk || !slOk) {
+          setRoundsStatus("Round " + (i + 1) + " is marked Custom Course and needs a Course Rating and a Slope Rating (55-155).", "warn");
+          return;
+        }
+      } else {
+        if (!r.tee) {
+          setRoundsStatus("Round " + (i + 1) + " needs a tee selected before calculating.", "warn");
+          return;
+        }
+        if (!teeIsConfigured(r.tee)) {
+          setRoundsStatus("The " + r.tee + " tee setup is incomplete. Save its Constant, Slope Rating and Course Rating first.", "warn");
+          return;
+        }
       }
     }
 
     // Compute a differential for every round (so the full scorecard displays one),
     // but only rounds 2-21 (indices 1..20, the most recent 20) count toward the handicap.
     const differentials = state.rounds.map(r => {
-      const tee = state.setup[r.tee];
+      const tee = r.tee ? state.setup[r.tee] : null;
+      let constant, slope, cr;
+      if (r.custom) {
+        // custom ratings for this round; constant comes from the selected tee if available, else the standard 113
+        constant = (tee && tee.constant !== null && tee.constant !== undefined) ? tee.constant : 113;
+        slope = r.slope;
+        cr = r.cr;
+      } else {
+        constant = tee.constant;
+        slope = tee.slope;
+        cr = tee.cr;
+      }
       const pcc = (r.pcc === null || r.pcc === undefined || isNaN(r.pcc)) ? 0 : r.pcc;
-      const diff = (tee.constant / tee.slope) * (r.gross - tee.cr - pcc);
+      const diff = (constant / slope) * (r.gross - cr - pcc);
       return Math.round(diff * 10) / 10;
     });
 
